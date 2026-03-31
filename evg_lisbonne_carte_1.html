@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>EVG Lisbonne — Carte</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+#map { width: 100%; height: 100vh; }
+.header {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  background: rgba(0,0,0,0.85); color: white; padding: 10px 16px;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.header h1 { font-size: 16px; font-weight: 700; }
+.header span { font-size: 12px; opacity: 0.7; }
+.filters {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  z-index: 1000; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
+  max-width: 95vw; padding: 8px;
+  background: rgba(0,0,0,0.8); border-radius: 20px;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.filter-btn {
+  border: none; padding: 6px 12px; border-radius: 16px; font-size: 12px;
+  font-weight: 600; cursor: pointer; white-space: nowrap;
+  transition: all 0.2s;
+}
+.filter-btn.active { opacity: 1; transform: scale(1.05); }
+.filter-btn.inactive { opacity: 0.4; }
+.leaflet-popup-content { min-width: 200px; }
+.popup-cat { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.popup-name { font-size: 16px; font-weight: 700; margin-bottom: 4px; color: #1a1a1a; }
+.popup-desc { font-size: 13px; color: #555; margin-bottom: 8px; line-height: 1.4; }
+.popup-rating { font-size: 13px; margin-bottom: 8px; }
+.popup-new { display: inline-block; background: #FF6D00; color: white; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
+.popup-nav {
+  display: block; text-align: center; padding: 10px; border-radius: 8px;
+  text-decoration: none; color: white; font-weight: 700; font-size: 14px;
+  background: #4285F4;
+}
+.popup-nav:hover { background: #3367D6; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div><h1>EVG Lisbonne — Avril 2026</h1><span>37 lieux • Clique un pin pour Google Maps</span></div>
+</div>
+<div id="map"></div>
+<div class="filters" id="filters"></div>
+
+<script>
+const places = [
+  // === ACTIVITES ===
+  {cat:"Activite",color:"#E53935",icon:"\u{1F3CE}",nm:"LisboaKart",desc:"Karting outdoor \u2014 40-50\u20ac/pers",rating:"4.1",lat:38.7786147,lng:-9.1928951},
+  {cat:"Activite",color:"#E53935",icon:"\u{1F3AF}",nm:"Emboscada Paintball",desc:"Paintball for\u00eat Monsanto \u2014 25-35\u20ac",rating:"4.9",lat:38.7246822,lng:-9.2073704},
+  {cat:"Activite",color:"#E53935",icon:"\u{1F6E5}",nm:"Splash Boat Party",desc:"All-inclusive 4h \u2014 Doca do Espanhol \u2014 ~69\u20ac",rating:"4.9",lat:38.702758,lng:-9.165241},
+  {cat:"Activite",color:"#E53935",icon:"\u{1F6E5}",nm:"Lisbon Boat Party",desc:"DJ live, welcome drink, 4h \u2014 Doca Alc\u00e2ntara \u2014 After incluse",rating:"4.7",lat:38.7028426,lng:-9.1630594,isNew:true},
+  {cat:"Activite",color:"#E53935",icon:"\u26F5",nm:"Taguscruises Sunset",desc:"Croisi\u00e8re voilier sunset \u2014 Bel\u00e9m",rating:"4.8",lat:38.6937134,lng:-9.2128807},
+  {cat:"Activite",color:"#E53935",icon:"\u{1F3C4}",nm:"Surf Pro School",desc:"Cours surf 2h \u2014 Costa da Caparica \u2014 15-25\u20ac",rating:"4.9",lat:38.6392148,lng:-9.2348305},
+  {cat:"Activite",color:"#E53935",icon:"\u{1F3C4}",nm:"Portugal Surf School",desc:"Praia da Caparica \u2014 5.0\u2605 (638 avis)",rating:"5.0",lat:38.6486133,lng:-9.2438358},
+  {cat:"Activite",color:"#E53935",icon:"\u{1F6FA}",nm:"Eco Tuk Tours",desc:"Tuk-tuk \u00e9lectrique \u2014 Alfama",rating:"5.0",lat:38.7101575,lng:-9.1293057},
+
+  // === RESTAURANTS ===
+  {cat:"Restaurant",color:"#FF9800",icon:"\u{1F37D}",nm:"Taberna Sal Grosso",desc:"Poulpe grill\u00e9, crevettes ail \u2014 Alfama \u2014 \u20ac",rating:"4.7",lat:38.7136987,lng:-9.1244447},
+  {cat:"Restaurant",color:"#FF9800",icon:"\u{1F37D}",nm:"O Tasco Do Vig\u00e1rio",desc:"Grillades poisson \u2014 Alfama \u2014 \u20ac \u2014 Ferm\u00e9 dim",rating:"4.7",lat:38.7127703,lng:-9.1265219},
+  {cat:"Restaurant",color:"#FF9800",icon:"\u{1F37D}",nm:"Solar do Duque",desc:"Bacalhau \u00e0 Br\u00e1s \u2014 Chiado \u2014 \u20ac\u20ac \u2014 7/7",rating:"4.6",lat:38.7133899,lng:-9.141821},
+  {cat:"Restaurant",color:"#FF9800",icon:"\u2B50",nm:"A Nossa Casa",desc:"Chef's choice \u2014 Bairro Alto \u2014 R\u00c9SA OBLIGATOIRE",rating:"4.8",lat:38.7118452,lng:-9.1449444},
+  {cat:"Restaurant",color:"#FF9800",icon:"\u{1F37D}",nm:"da Prata 52",desc:"Tapas \u00e0 partager \u2014 Baixa \u2014 Ferm\u00e9 mer/jeu/dim",rating:"4.7",lat:38.7096076,lng:-9.1362697},
+  {cat:"Restaurant",color:"#FF9800",icon:"\u{1F31F}",nm:"Feitoria \u2605 Michelin",desc:"Menu 8 plats \u2014 Bel\u00e9m \u2014 \u20ac\u20ac\u20ac\u20ac \u2014 Ferm\u00e9 lun/dim",rating:"4.8",lat:38.6934397,lng:-9.2104978},
+  {cat:"Restaurant",color:"#FF9800",icon:"\u{1F31F}",nm:"Loco \u2605 Michelin",desc:"16 moments \u2014 Santos \u2014 \u20ac\u20ac\u20ac\u20ac \u2014 Ferm\u00e9 lun/dim",rating:"4.7",lat:38.7124663,lng:-9.1605846},
+  {cat:"Restaurant",color:"#FF9800",icon:"\u{1F37D}",nm:"JNcQUOI Avenida",desc:"Steaks, homard hot-dog \u2014 Av. Liberdade \u2014 \u20ac\u20ac\u20ac",rating:"4.6",lat:38.720280,lng:-9.1449959},
+
+  // === BARS ===
+  {cat:"Bar",color:"#7B1FA2",icon:"\u{1F305}",nm:"SEEN Sky Bar",desc:"Rooftop luxe 360\u00b0 \u2014 Av. Liberdade \u2014 \u20ac\u20ac\u20ac",rating:"4.3",lat:38.7209984,lng:-9.147139},
+  {cat:"Bar",color:"#7B1FA2",icon:"\u{1F305}",nm:"Lumi Rooftop",desc:"Sunset, cuisine fusion \u2014 S\u00e3o Pedro",rating:"4.4",lat:38.7138686,lng:-9.1440053},
+  {cat:"Bar",color:"#7B1FA2",icon:"\u{1F305}",nm:"Park Rooftop",desc:"Sur un parking ! Vue Tage, DJs",rating:"4.0",lat:38.7111904,lng:-9.147734},
+  {cat:"Bar",color:"#7B1FA2",icon:"\u{1F305}",nm:"Rooftop The Art Inn",desc:"Vue Castelo de nuit \u2014 Rossio",rating:"4.5",lat:38.7130722,lng:-9.1400066},
+  {cat:"Bar",color:"#7B1FA2",icon:"\u{1F37A}",nm:"Cerveja Canil",desc:"Craft beer maison, tapas \u2014 Baixa",rating:"4.6",lat:38.7124105,lng:-9.1371902},
+  {cat:"Bar",color:"#7B1FA2",icon:"\u{1F37A}",nm:"Crafty Corner",desc:"Flight 5 bi\u00e8res 15\u20ac \u2014 Alfama",rating:"4.6",lat:38.7094985,lng:-9.1318081},
+  {cat:"Bar",color:"#7B1FA2",icon:"\u{1F37A}",nm:"Golden Dragon",desc:"50+ bi\u00e8res, billard, fl\u00e9chettes",rating:"4.5",lat:38.7299675,lng:-9.1476351},
+  {cat:"Bar",color:"#7B1FA2",icon:"\u{1F3A4}",nm:"O Bom O Mau e O Vil\u00e3o",desc:"Cocktails, jazz/karaoke \u2014 Cais do Sodr\u00e9",rating:"4.4",lat:38.7073563,lng:-9.1435333},
+
+  // === CLUBS ===
+  {cat:"Club",color:"#D81B60",icon:"\u{1F525}",nm:"LuxFr\u00e1gil",desc:"LE club mythique \u2014 Jeu-Sam d\u00e8s 23h \u2014 ~14\u20ac",rating:"2.5",lat:38.7148909,lng:-9.1205341},
+  {cat:"Club",color:"#D81B60",icon:"\u{1F525}",nm:"Coyote by Ache",desc:"Pink Street \u2014 Cocktails + DJ \u2014 \u26a0\ufe0f Pickpockets",rating:"4.8",lat:38.7073791,lng:-9.1443457},
+
+  // === MIRADOUROS ===
+  {cat:"Miradouro",color:"#00897B",icon:"\u{1F440}",nm:"Miradouro Senhora do Monte",desc:"Le plus haut \u2014 Vue 360\u00b0 \u2014 THE sunset",rating:"4.8",lat:38.7192133,lng:-9.1328298},
+  {cat:"Miradouro",color:"#00897B",icon:"\u{1F440}",nm:"Miradouro Santa Luzia",desc:"Azulejos, toits rouges Alfama",rating:"4.7",lat:38.7116956,lng:-9.1301972},
+  {cat:"Miradouro",color:"#00897B",icon:"\u{1F440}",nm:"Miradouro da Gra\u00e7a",desc:"Terrasse ombrag\u00e9e, caf\u00e9/bar",rating:"4.7",lat:38.7164509,lng:-9.1315937},
+
+  // === RANDOS ===
+  {cat:"Rando",color:"#2E7D32",icon:"\u{1F97E}",nm:"Ch\u00e2teau des Maures",desc:"Sintra \u2014 8km mod\u00e9r\u00e9e ~3h \u2014 40min",rating:"4.6",lat:38.792556,lng:-9.3893376},
+  {cat:"Rando",color:"#2E7D32",icon:"\u{1F97E}",nm:"Cabo da Roca",desc:"Point le + occidental d'Europe \u2014 6km",rating:"4.7",lat:38.7804282,lng:-9.4989171},
+  {cat:"Rando",color:"#2E7D32",icon:"\u{1F97E}",nm:"PR4 Route C\u00f4ti\u00e8re Guincho",desc:"Parc Sintra-Cascais \u2014 10km difficile \u2014 3-4h",rating:"4.7",lat:38.7324707,lng:-9.4724771,isNew:true},
+  {cat:"Rando",color:"#2E7D32",icon:"\u{1F97E}",nm:"Serra do Risco \u2014 Arr\u00e1bida",desc:"Plus hautes falaises du Portugal \u2014 10km \u2014 4h",rating:"4.8",lat:38.4693714,lng:-9.0643419,isNew:true},
+  {cat:"Rando",color:"#2E7D32",icon:"\u{1F97E}",nm:"Portinho da Arr\u00e1bida",desc:"Rando facile + plage turquoise \u2014 5km \u2014 1h30",rating:"4.7",lat:38.4800732,lng:-8.9785385,isNew:true},
+  {cat:"Rando",color:"#2E7D32",icon:"\u{1F332}",nm:"Trilho Azul \u2014 Monsanto",desc:"Boucle 9km en for\u00eat \u2014 Facile \u2014 Id\u00e9al lendemain de soir\u00e9e",rating:"4.7",lat:38.7235491,lng:-9.1917632,isNew:true},
+
+  // === PLAGES ===
+  {cat:"Plage",color:"#0288D1",icon:"\u{1F3D6}",nm:"Costa da Caparica",desc:"La + accessible (~25min) \u2014 Surf + bars de plage",rating:"4.6",lat:38.5484832,lng:-9.2072800,isNew:true},
+  {cat:"Plage",color:"#0288D1",icon:"\u{1F3D6}",nm:"Praia da Comporta",desc:"Plage chic \u2014 1h15 sud \u2014 Sable blanc, turquoise",rating:"4.6",lat:38.3809097,lng:-8.8035364,isNew:true},
+];
+
+const categories = [...new Set(places.map(p => p.cat))];
+const catColors = {};
+places.forEach(p => catColors[p.cat] = p.color);
+
+const map = L.map('map', {zoomControl: false}).setView([38.72, -9.15], 12);
+L.control.zoom({position: 'topright'}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '\u00a9 OpenStreetMap', maxZoom: 19
+}).addTo(map);
+
+const markers = {};
+const allMarkers = [];
+categories.forEach(cat => markers[cat] = []);
+
+places.forEach(p => {
+  const size = 32;
+  const markerIcon = L.divIcon({
+    className: 'custom-marker',
+    html: '<div style="background:'+p.color+';width:'+size+'px;height:'+size+'px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);">'+p.icon+'</div>',
+    iconSize: [size, size],
+    iconAnchor: [size/2, size/2],
+    popupAnchor: [0, -20]
+  });
+
+  const gmapsDir = 'https://www.google.com/maps/dir/?api=1&destination='+p.lat+','+p.lng;
+  const stars = p.rating ? '\u2605 ' + p.rating : '';
+  const newBadge = p.isNew ? '<span class="popup-new">AJOUT\u00c9</span>' : '';
+
+  const popup = '<div class="popup-cat" style="color:'+p.color+'">'+p.cat+'</div>'
+    + '<div class="popup-name">'+p.icon+' '+p.nm+newBadge+'</div>'
+    + '<div class="popup-desc">'+p.desc+'</div>'
+    + (stars ? '<div class="popup-rating">'+stars+'</div>' : '')
+    + '<a class="popup-nav" href="'+gmapsDir+'" target="_blank">\u{1F4CD} Ouvrir dans Google Maps</a>';
+
+  const marker = L.marker([p.lat, p.lng], {icon: markerIcon}).bindPopup(popup);
+  markers[p.cat].push(marker);
+  allMarkers.push(marker);
+  marker.addTo(map);
+});
+
+const group = L.featureGroup(allMarkers);
+map.fitBounds(group.getBounds().pad(0.1));
+
+const filtersDiv = document.getElementById('filters');
+const activeFilters = new Set(categories);
+
+const catLabels = {
+  'Activite': '\u{1F3CE} Activit\u00e9s',
+  'Restaurant': '\u{1F37D} Restos',
+  'Bar': '\u{1F37A} Bars',
+  'Club': '\u{1F525} Clubs',
+  'Miradouro': '\u{1F440} Miradouros',
+  'Rando': '\u{1F97E} Randos',
+  'Plage': '\u{1F3D6} Plages'
+};
+
+categories.forEach(cat => {
+  const btn = document.createElement('button');
+  btn.className = 'filter-btn active';
+  btn.style.background = catColors[cat];
+  btn.style.color = 'white';
+  btn.textContent = catLabels[cat] || cat;
+  btn.onclick = function() {
+    if (activeFilters.has(cat)) {
+      activeFilters.delete(cat);
+      btn.classList.remove('active');
+      btn.classList.add('inactive');
+      markers[cat].forEach(function(m) { map.removeLayer(m); });
+    } else {
+      activeFilters.add(cat);
+      btn.classList.add('active');
+      btn.classList.remove('inactive');
+      markers[cat].forEach(function(m) { m.addTo(map); });
+    }
+  };
+  filtersDiv.appendChild(btn);
+});
+</script>
+</body>
+</html>
